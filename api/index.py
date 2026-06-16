@@ -4,9 +4,9 @@ import json
 import os
 import urllib.error
 import urllib.request
+from http.server import BaseHTTPRequestHandler
 from typing import Any
-
-from flask import Flask, abort, jsonify, request
+from urllib.parse import parse_qs, urlparse
 
 DEFAULT_DATA_BASE_URL = (
     "https://raw.githubusercontent.com/sgeorge83/urdu-bible-data/main"
@@ -90,7 +90,6 @@ class BibleData:
         return results
 
 
-app = Flask(__name__)
 _bible: BibleData | None = None
 
 
@@ -101,99 +100,120 @@ def get_bible() -> BibleData:
     return _bible
 
 
-@app.after_request
-def add_cors_headers(response):
-    response.headers["Access-Control-Allow-Origin"] = "*"
-    response.headers["Access-Control-Allow-Methods"] = "GET, OPTIONS"
-    response.headers["Access-Control-Allow-Headers"] = "Content-Type"
-    return response
+def _json_response(http_handler: BaseHTTPRequestHandler, status: int, payload: Any) -> None:
+    body = json.dumps(payload, ensure_ascii=False).encode("utf-8")
+    http_handler.send_response(status)
+    http_handler.send_header("Content-Type", "application/json; charset=utf-8")
+    http_handler.send_header("Access-Control-Allow-Origin", "*")
+    http_handler.send_header("Content-Length", str(len(body)))
+    http_handler.end_headers()
+    http_handler.wfile.write(body)
 
 
-@app.get("/favicon.ico")
-def favicon():
-    return ("", 204)
+def _empty_response(http_handler: BaseHTTPRequestHandler, status: int = 204) -> None:
+    http_handler.send_response(status)
+    http_handler.send_header("Access-Control-Allow-Origin", "*")
+    http_handler.end_headers()
 
 
-@app.get("/")
-def root():
-    bible = get_bible()
-    return jsonify(
-        {
-            "name": "Urdu Bible API",
-            "translation": bible.metadata.get("name"),
-            "module": bible.metadata.get("module"),
-            "data_source": bible.base_url,
-        }
-    )
+class handler(BaseHTTPRequestHandler):
+    def do_GET(self) -> None:
+        parsed = urlparse(self.path)
+        path = parsed.path.rstrip("/") or "/"
 
+        for prefix in ("/api/index", "/api"):
+            if path.startswith(prefix):
+                path = path[len(prefix):] or "/"
+                break
 
-@app.get("/health")
-def health():
-    return jsonify({"status": "ok"})
+        query = parse_qs(parsed.query)
 
+        try:
+            if path == "/favicon.ico":
+                return _empty_response(self, 204)
 
-@app.get("/info")
-def info():
-    return jsonify(get_bible().metadata)
+            if path == "/health":
+                return _json_response(self, 200, {"status": "ok"})
 
+            if path == "/":
+                bible = get_bible()
+                return _json_response(
+                    self,
+                    200,
+                    {
+                        "name": "Urdu Bible API",
+                        "translation": bible.metadata.get("name"),
+                        "module": bible.metadata.get("module"),
+                        "data_source": bible.base_url,
+                    },
+                )
 
-@app.get("/books")
-def list_books():
-    return jsonify(get_bible().list_books())
+            if path == "/info":
+                return _json_response(self, 200, get_bible().metadata)
 
+            if path == "/books":
+                return _json_response(self, 200, get_bible().list_books())
 
-@app.get("/books/<int:book_id>")
-def get_book(book_id: int):
-    book = get_bible().get_book(book_id)
-    if book is None:
-        abort(404, description="Book not found")
-    return jsonify(book)
+            parts = [part for part in path.split("/") if part]
 
+            if len(parts) == 2 and parts[0] == "books" and parts[1].isdigit():
+                book = get_bible().get_book(int(parts[1]))
+                if book is None:
+                    return _json_response(self, 404, {"error": "Book not found"})
+                return _json_response(self, 200, book)
 
-@app.get("/books/<int:book_id>/chapters/<int:chapter>")
-def get_chapter(book_id: int, chapter: int):
-    chapter_data = get_bible().get_chapter(book_id, chapter)
-    if chapter_data is None:
-        abort(404, description="Chapter not found")
-    return jsonify(chapter_data)
+            if (
+                len(parts) == 4
+                and parts[0] == "books"
+                and parts[2] == "chapters"
+                and parts[1].isdigit()
+                and parts[3].isdigit()
+            ):
+                chapter_data = get_bible().get_chapter(int(parts[1]), int(parts[3]))
+                if chapter_data is None:
+                    return _json_response(self, 404, {"error": "Chapter not found"})
+                return _json_response(self, 200, chapter_data)
 
+            if (
+                len(parts) == 6
+                and parts[0] == "books"
+                and parts[2] == "chapters"
+                and parts[4] == "verses"
+                and all(part.isdigit() for part in (parts[1], parts[3], parts[5]))
+            ):
+                verse_data = get_bible().get_verse(
+                    int(parts[1]), int(parts[3]), int(parts[5])
+                )
+                if verse_data is None:
+                    return _json_response(self, 404, {"error": "Verse not found"})
+                return _json_response(self, 200, verse_data)
 
-@app.get("/books/<int:book_id>/chapters/<int:chapter>/verses/<int:verse>")
-def get_verse(book_id: int, chapter: int, verse: int):
-    verse_data = get_bible().get_verse(book_id, chapter, verse)
-    if verse_data is None:
-        abort(404, description="Verse not found")
-    return jsonify(verse_data)
+            if path == "/search":
+                q = query.get("q", [""])[0].strip()
+                book_raw = query.get("book", [""])[0].strip()
+                limit_raw = query.get("limit", ["50"])[0].strip()
 
+                if not q or not book_raw:
+                    return _json_response(
+                        self,
+                        400,
+                        {"error": "Query parameters 'q' and 'book' are required"},
+                    )
 
-@app.get("/search")
-def search():
-    query = request.args.get("q", "").strip()
-    book_raw = request.args.get("book")
-    limit_raw = request.args.get("limit", "50")
+                book_id = int(book_raw)
+                limit = int(limit_raw)
+                if book_id < 1 or book_id > 66:
+                    return _json_response(self, 400, {"error": "Book must be 1-66"})
+                if limit < 1 or limit > 200:
+                    return _json_response(self, 400, {"error": "Limit must be 1-200"})
 
-    if not query:
-        abort(400, description="Query parameter 'q' is required")
-    if not book_raw:
-        abort(400, description="Query parameter 'book' is required")
+                results = get_bible().search(q, book_id=book_id, limit=limit)
+                return _json_response(
+                    self,
+                    200,
+                    {"query": q, "book": book_id, "count": len(results), "results": results},
+                )
 
-    try:
-        book_id = int(book_raw)
-        limit = int(limit_raw)
-    except ValueError:
-        abort(400, description="Invalid book or limit parameter")
-
-    if book_id < 1 or book_id > 66:
-        abort(400, description="Book must be between 1 and 66")
-    if limit < 1 or limit > 200:
-        abort(400, description="Limit must be between 1 and 200")
-
-    results = get_bible().search(query, book_id=book_id, limit=limit)
-    return jsonify(
-        {
-            "query": query,
-            "book": book_id,
-            "count": len(results),
-            "results": results,
-        }
-    )
+            return _json_response(self, 404, {"error": "Not found"})
+        except Exception as error:
+            return _json_response(self, 500, {"error": str(error)})
