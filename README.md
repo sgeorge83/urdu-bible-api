@@ -1,8 +1,21 @@
 # Urdu Bible API
 
-REST API for the **Urdu Geo Version** Bible (کتابِ مقدس), module `ur_geo`.
+# About
 
-This project contains **no Bible text**. Verse data is loaded at runtime from a separate public GitHub repository, which keeps your office laptop and network free of the JSON files.
+**Urdu Bible API** is a free, read-only REST API for the **Urdu Geo Version** of the Holy Bible (کتابِ مقدس, module `ur_geo`, 2019).
+
+The API is built with **FastAPI**, deployed on **Vercel**, and includes interactive OpenAPI docs at `/docs`. It does **not** store Bible text in the repo — verse data is loaded at runtime from the companion [urdu-bible-data](https://github.com/sgeorge83/urdu-bible-data) repository via GitHub raw URLs.
+
+**Features**
+- List all 66 books
+- Read any chapter or single verse
+- Search Urdu text within a book
+- Translation metadata and license info at `/info`
+- CORS enabled for web and mobile apps
+
+**Tech stack:** Python 3.12 · FastAPI · Vercel · GitHub (data CDN)
+
+**License note:** Bible text is © 2019 Urdu Geo Version, [CC BY-NC-ND 4.0](https://creativecommons.org/licenses/by-nc-nd/4.0/). API code is open source.
 
 ## Architecture
 
