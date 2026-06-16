@@ -4,6 +4,18 @@
 **Interactive docs:** [urdu-bible-api.vercel.app/docs](https://urdu-bible-api.vercel.app/docs)  
 **Data repo:** [github.com/sgeorge83/urdu-bible-data](https://github.com/sgeorge83/urdu-bible-data)
 
+## For developers
+
+Start here: **[https://urdu-bible-api.vercel.app/docs](https://urdu-bible-api.vercel.app/docs)**
+
+The interactive OpenAPI docs let you:
+
+- Browse all endpoints and response schemas
+- Run live requests from the browser ("Try it out")
+- Copy example URLs for your app or website
+
+The root endpoint (`GET /`) also returns this docs URL in the `docs` field.
+
 ## About
 
 **Urdu Bible API** is a free, read-only REST API for the **Urdu Geo Version** of the Holy Bible (کتابِ مقدس, module `ur_geo`, 2019).

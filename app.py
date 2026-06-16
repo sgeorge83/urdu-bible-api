@@ -13,6 +13,10 @@ from fastapi.responses import Response
 DEFAULT_DATA_BASE_URL = (
     "https://raw.githubusercontent.com/sgeorge83/urdu-bible-data/main"
 )
+API_BASE_URL = os.environ.get(
+    "API_PUBLIC_URL", "https://urdu-bible-api.vercel.app"
+).rstrip("/")
+API_DOCS_URL = f"{API_BASE_URL}/docs"
 
 _json_cache: dict[str, Any] = {}
 
@@ -94,8 +98,17 @@ class BibleData:
 
 app = FastAPI(
     title="Urdu Bible API",
-    description="REST API for the Urdu Geo Version Bible",
+    description=(
+        "REST API for the Urdu Geo Version Bible (کتابِ مقدس).\n\n"
+        f"**Developer docs:** [{API_DOCS_URL}]({API_DOCS_URL})\n\n"
+        "Use the interactive docs to explore endpoints, view schemas, "
+        "and try requests directly in the browser."
+    ),
     version="1.0.0",
+    servers=[
+        {"url": API_BASE_URL, "description": "Production"},
+        {"url": "http://localhost:8000", "description": "Local development"},
+    ],
 )
 
 app.add_middleware(
@@ -128,7 +141,8 @@ def root() -> dict:
         "translation": bible.metadata.get("name"),
         "module": bible.metadata.get("module"),
         "data_source": bible.base_url,
-        "docs": "/docs",
+        "docs": API_DOCS_URL,
+        "docs_path": "/docs",
     }
 
 

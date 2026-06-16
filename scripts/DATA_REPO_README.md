@@ -1,6 +1,7 @@
 # Urdu Geo Version Bible data (ur_geo)
 
 **API:** [urdu-bible-api.vercel.app](https://urdu-bible-api.vercel.app)  
+**Developer docs:** [urdu-bible-api.vercel.app/docs](https://urdu-bible-api.vercel.app/docs)  
 **API repo:** [github.com/sgeorge83/urdu-bible-api](https://github.com/sgeorge83/urdu-bible-api)  
 **Raw base URL:** `https://raw.githubusercontent.com/sgeorge83/urdu-bible-data/main`
 
