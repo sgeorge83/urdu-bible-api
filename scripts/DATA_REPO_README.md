@@ -1,17 +1,44 @@
 # Urdu Geo Version Bible data (ur_geo)
 
-Public chapter files for the Urdu Bible API.
+**API:** [urdu-bible-api.vercel.app](https://urdu-bible-api.vercel.app)  
+**API repo:** [github.com/sgeorge83/urdu-bible-api](https://github.com/sgeorge83/urdu-bible-api)  
+**Raw base URL:** `https://raw.githubusercontent.com/sgeorge83/urdu-bible-data/main`
+
+## About
+
+This repository hosts the **Urdu Geo Version** Bible (کتابِ مقدس) as structured JSON files for use by apps, websites, and the [Urdu Bible API](https://github.com/sgeorge83/urdu-bible-api).
+
+**Contents**
+
+- `metadata.json` — translation info, publisher, license
+- `books.json` — 66 books with Urdu names and chapter counts
+- `chapters/{book}/{chapter}.json` — 1,189 chapter files (30,668 verses total)
+
+**Translation:** Urdu Geo Version (`ur_geo`), 2019  
+**Script:** Urdu  
+**Format:** Split from Bible SuperSearch JSON; text and punctuation unchanged
 
 ## Structure
 
 ```text
-metadata.json
-books.json
-chapters/
-  1/1.json
-  1/2.json
-  ...
-  66/22.json
+urdu-bible-data/
+├── README.md
+├── metadata.json
+├── books.json
+└── chapters/
+    ├── 1/                 # Genesis (50 chapters)
+    │   ├── 1.json
+    │   └── ...
+    ├── 40/                # Matthew
+    └── 66/                # Revelation (22 chapters)
+```
+
+### Example URLs
+
+```text
+https://raw.githubusercontent.com/sgeorge83/urdu-bible-data/main/metadata.json
+https://raw.githubusercontent.com/sgeorge83/urdu-bible-data/main/books.json
+https://raw.githubusercontent.com/sgeorge83/urdu-bible-data/main/chapters/1/1.json
 ```
 
 ## License
