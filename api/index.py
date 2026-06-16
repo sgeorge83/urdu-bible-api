@@ -6,9 +6,7 @@ import urllib.error
 import urllib.request
 from typing import Any
 
-from fastapi import FastAPI, HTTPException, Query
-from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import Response
+from flask import Flask, abort, jsonify, request
 
 DEFAULT_DATA_BASE_URL = (
     "https://raw.githubusercontent.com/sgeorge83/urdu-bible-data/main"
@@ -22,11 +20,11 @@ def _fetch_json(base_url: str, path: str) -> Any:
     if cache_key in _json_cache:
         return _json_cache[cache_key]
 
-    request = urllib.request.Request(
+    http_request = urllib.request.Request(
         cache_key,
         headers={"User-Agent": "urdu-bible-api/1.0"},
     )
-    with urllib.request.urlopen(request, timeout=30) as response:
+    with urllib.request.urlopen(http_request, timeout=30) as response:
         payload = json.loads(response.read().decode("utf-8"))
 
     _json_cache[cache_key] = payload
@@ -92,19 +90,7 @@ class BibleData:
         return results
 
 
-app = FastAPI(
-    title="Urdu Bible API",
-    description="REST API for the Urdu Geo Version Bible",
-    version="1.0.0",
-)
-
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["*"],
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
-
+app = Flask(__name__)
 _bible: BibleData | None = None
 
 
@@ -115,72 +101,99 @@ def get_bible() -> BibleData:
     return _bible
 
 
-@app.get("/favicon.ico", include_in_schema=False)
-def favicon() -> Response:
-    return Response(status_code=204)
+@app.after_request
+def add_cors_headers(response):
+    response.headers["Access-Control-Allow-Origin"] = "*"
+    response.headers["Access-Control-Allow-Methods"] = "GET, OPTIONS"
+    response.headers["Access-Control-Allow-Headers"] = "Content-Type"
+    return response
+
+
+@app.get("/favicon.ico")
+def favicon():
+    return ("", 204)
 
 
 @app.get("/")
-def root() -> dict:
+def root():
     bible = get_bible()
-    return {
-        "name": "Urdu Bible API",
-        "translation": bible.metadata.get("name"),
-        "module": bible.metadata.get("module"),
-        "data_source": bible.base_url,
-        "docs": "/docs",
-    }
+    return jsonify(
+        {
+            "name": "Urdu Bible API",
+            "translation": bible.metadata.get("name"),
+            "module": bible.metadata.get("module"),
+            "data_source": bible.base_url,
+        }
+    )
 
 
 @app.get("/health")
-def health() -> dict:
-    return {"status": "ok"}
+def health():
+    return jsonify({"status": "ok"})
 
 
 @app.get("/info")
-def info() -> dict:
-    return get_bible().metadata
+def info():
+    return jsonify(get_bible().metadata)
 
 
 @app.get("/books")
-def list_books() -> list[dict]:
-    return get_bible().list_books()
+def list_books():
+    return jsonify(get_bible().list_books())
 
 
-@app.get("/books/{book_id}")
-def get_book(book_id: int) -> dict:
+@app.get("/books/<int:book_id>")
+def get_book(book_id: int):
     book = get_bible().get_book(book_id)
     if book is None:
-        raise HTTPException(status_code=404, detail="Book not found")
-    return book
+        abort(404, description="Book not found")
+    return jsonify(book)
 
 
-@app.get("/books/{book_id}/chapters/{chapter}")
-def get_chapter(book_id: int, chapter: int) -> dict:
+@app.get("/books/<int:book_id>/chapters/<int:chapter>")
+def get_chapter(book_id: int, chapter: int):
     chapter_data = get_bible().get_chapter(book_id, chapter)
     if chapter_data is None:
-        raise HTTPException(status_code=404, detail="Chapter not found")
-    return chapter_data
+        abort(404, description="Chapter not found")
+    return jsonify(chapter_data)
 
 
-@app.get("/books/{book_id}/chapters/{chapter}/verses/{verse}")
-def get_verse(book_id: int, chapter: int, verse: int) -> dict:
+@app.get("/books/<int:book_id>/chapters/<int:chapter>/verses/<int:verse>")
+def get_verse(book_id: int, chapter: int, verse: int):
     verse_data = get_bible().get_verse(book_id, chapter, verse)
     if verse_data is None:
-        raise HTTPException(status_code=404, detail="Verse not found")
-    return verse_data
+        abort(404, description="Verse not found")
+    return jsonify(verse_data)
 
 
 @app.get("/search")
-def search(
-    q: str = Query(..., min_length=1, description="Urdu text to search for"),
-    book: int = Query(..., ge=1, le=66, description="Book ID to search within"),
-    limit: int = Query(50, ge=1, le=200, description="Maximum number of results"),
-) -> dict:
-    results = get_bible().search(q, book_id=book, limit=limit)
-    return {
-        "query": q,
-        "book": book,
-        "count": len(results),
-        "results": results,
-    }
+def search():
+    query = request.args.get("q", "").strip()
+    book_raw = request.args.get("book")
+    limit_raw = request.args.get("limit", "50")
+
+    if not query:
+        abort(400, description="Query parameter 'q' is required")
+    if not book_raw:
+        abort(400, description="Query parameter 'book' is required")
+
+    try:
+        book_id = int(book_raw)
+        limit = int(limit_raw)
+    except ValueError:
+        abort(400, description="Invalid book or limit parameter")
+
+    if book_id < 1 or book_id > 66:
+        abort(400, description="Book must be between 1 and 66")
+    if limit < 1 or limit > 200:
+        abort(400, description="Limit must be between 1 and 200")
+
+    results = get_bible().search(query, book_id=book_id, limit=limit)
+    return jsonify(
+        {
+            "query": query,
+            "book": book_id,
+            "count": len(results),
+            "results": results,
+        }
+    )
