@@ -60,19 +60,24 @@ https://raw.githubusercontent.com/YOUR_USERNAME/urdu-bible-data/main/chapters/1/
 ## Step 4: Deploy on Vercel
 
 1. Go to [vercel.com](https://vercel.com) and import the `urdu-bible-api` repo.
-2. Vercel auto-detects Python from `requirements.txt` and `api/index.py`.
-3. Add an environment variable in Vercel project settings:
+2. In **Project Settings → General**:
+   - **Framework Preset:** `FastAPI` (or `Other`)
+   - **Root Directory:** leave empty (project root)
+   - **Build Command:** leave empty
+   - **Output Directory:** leave empty
+3. Vercel loads the app from root `app.py` via `pyproject.toml` (`entrypoint = "app:app"`).
+4. Add an environment variable in **Settings → Environment Variables**:
 
 | Name | Value |
 |------|-------|
-| `BIBLE_DATA_BASE_URL` | `https://raw.githubusercontent.com/YOUR_USERNAME/urdu-bible-data/main` |
+| `BIBLE_DATA_BASE_URL` | `https://raw.githubusercontent.com/sgeorge83/urdu-bible-data/main` |
 
-4. Deploy. Your API will be live at `https://your-project.vercel.app`.
-
-5. Test:
+5. **Redeploy** the latest `main` commit (Deployments → ... → Redeploy).
+6. If you still see `FUNCTION_INVOCATION_FAILED`, open **Deployments → Logs → Runtime Logs** and check the Python traceback.
+7. Test:
 
 ```text
-GET https://your-project.vercel.app/books
+GET https://your-project.vercel.app/health
 GET https://your-project.vercel.app/books/1/chapters/1/verses/1
 GET https://your-project.vercel.app/docs
 ```
