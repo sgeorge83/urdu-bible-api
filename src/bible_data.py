@@ -2,33 +2,48 @@ from __future__ import annotations
 
 import json
 import os
-from functools import lru_cache
-
-import httpx
+import urllib.error
+import urllib.request
+from typing import Any
 
 DEFAULT_DATA_BASE_URL = (
     "https://raw.githubusercontent.com/sgeorge83/urdu-bible-data/main"
 )
 
+_json_cache: dict[str, Any] = {}
+
+
+def _fetch_json(base_url: str, path: str) -> Any:
+    cache_key = f"{base_url}/{path}"
+    if cache_key in _json_cache:
+        return _json_cache[cache_key]
+
+    request = urllib.request.Request(
+        cache_key,
+        headers={"User-Agent": "urdu-bible-api/1.0"},
+    )
+    with urllib.request.urlopen(request, timeout=30) as response:
+        payload = json.loads(response.read().decode("utf-8"))
+
+    _json_cache[cache_key] = payload
+    return payload
+
 
 class BibleData:
     def __init__(self, base_url: str | None = None) -> None:
-        self.base_url = (base_url or os.environ.get("BIBLE_DATA_BASE_URL", DEFAULT_DATA_BASE_URL)).rstrip("/")
-        self.metadata = self._fetch_json("metadata.json")
-        self._books = {book["id"]: book for book in self._fetch_json("books.json")}
-
-    @lru_cache(maxsize=256)
-    def _fetch_json(self, path: str) -> dict | list:
-        url = f"{self.base_url}/{path}"
-        response = httpx.get(url, timeout=30.0, follow_redirects=True)
-        response.raise_for_status()
-        return response.json()
+        self.base_url = (
+            base_url or os.environ.get("BIBLE_DATA_BASE_URL", DEFAULT_DATA_BASE_URL)
+        ).rstrip("/")
+        self.metadata = _fetch_json(self.base_url, "metadata.json")
+        self._books = {
+            book["id"]: book for book in _fetch_json(self.base_url, "books.json")
+        }
 
     def _fetch_chapter(self, book_id: int, chapter: int) -> dict | None:
         try:
-            return self._fetch_json(f"chapters/{book_id}/{chapter}.json")
-        except httpx.HTTPStatusError as error:
-            if error.response.status_code == 404:
+            return _fetch_json(self.base_url, f"chapters/{book_id}/{chapter}.json")
+        except urllib.error.HTTPError as error:
+            if error.code == 404:
                 return None
             raise
 

@@ -82,9 +82,8 @@ GET https://your-project.vercel.app/docs
 You only need the API code locally. Set the GitHub raw URL in `.env`:
 
 ```powershell
-copy .env.example .env
-pip install -r requirements.txt
-uvicorn main:app --app-dir src --reload --port 8000
+pip install -r requirements-dev.txt
+uvicorn app:app --app-dir src --reload --host 0.0.0.0 --port 8000
 ```
 
 ## Endpoints
