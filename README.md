@@ -27,6 +27,7 @@ The API is built with **FastAPI**, deployed on **Vercel**, and includes interact
 - List all 66 books
 - Read any chapter or single verse
 - Search Urdu text within a book
+- Verse of the Day (`/votd`) aligned with [labs.bible.org](https://labs.bible.org) VOTD, returned in Urdu
 - Translation metadata and license info at `/info`
 - CORS enabled for web and mobile apps
 
@@ -45,6 +46,8 @@ Vercel                   -->  hosts the API
 ```text
 urdu-bible-api/
 ├── app.py                 # Production app (Vercel entrypoint)
+├── book_names.py          # English book name → ID mapping
+├── votd.py                # Verse of the Day logic
 ├── pyproject.toml         # Vercel entrypoint = "app:app"
 ├── requirements.txt       # Production dependencies
 ├── requirements-dev.txt   # Local dev (includes uvicorn)
@@ -62,6 +65,8 @@ urdu-bible-api/
 |--------|------|-------------|
 | GET | `/` | API overview |
 | GET | `/health` | Health check |
+| GET | `/votd` | Verse of the Day (Urdu text, reference from labs.bible.org) |
+| GET | `/votd?include_english=true` | VOTD with optional NET English text |
 | GET | `/info` | Translation metadata and license |
 | GET | `/books` | List all 66 books |
 | GET | `/books/{book_id}` | Book details |
@@ -76,8 +81,15 @@ Search requires a `book` parameter because the API fetches chapters on demand fr
 ```text
 GET https://urdu-bible-api.vercel.app/books
 GET https://urdu-bible-api.vercel.app/books/1/chapters/1/verses/1
+GET https://urdu-bible-api.vercel.app/votd
 GET https://urdu-bible-api.vercel.app/search?q=اللہ&book=1&limit=10
 ```
+
+### Verse of the Day
+
+`GET /votd` fetches today's reference from [labs.bible.org](https://labs.bible.org/api/?passage=votd&type=json), maps the English book name to your numeric book ID (1–66), and returns the matching Urdu verse(s) from `urdu-bible-data`. Numbered books such as **1 Peter**, **2 Corinthians**, and **1 John** are mapped explicitly so references stay aligned.
+
+Results are cached for the UTC day. Add `?include_english=true` to include the NET English text (reference provider only; Urdu text remains the primary translation).
 
 ## Book IDs
 

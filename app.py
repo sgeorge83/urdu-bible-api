@@ -10,6 +10,8 @@ from fastapi import FastAPI, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import Response
 
+from votd import get_verse_of_the_day
+
 DEFAULT_DATA_BASE_URL = (
     "https://raw.githubusercontent.com/sgeorge83/urdu-bible-data/main"
 )
@@ -143,6 +145,7 @@ def root() -> dict:
         "data_source": bible.base_url,
         "docs": API_DOCS_URL,
         "docs_path": "/docs",
+        "votd": f"{API_BASE_URL}/votd",
     }
 
 
@@ -183,6 +186,21 @@ def get_verse(book_id: int, chapter: int, verse: int) -> dict:
     if verse_data is None:
         raise HTTPException(status_code=404, detail="Verse not found")
     return verse_data
+
+
+@app.get("/votd")
+def verse_of_the_day(
+    include_english: bool = Query(
+        False,
+        description="Include NET English text from labs.bible.org (reference provider)",
+    ),
+) -> dict:
+    try:
+        return get_verse_of_the_day(get_bible(), include_english=include_english)
+    except ValueError as error:
+        raise HTTPException(status_code=502, detail=str(error)) from error
+    except RuntimeError as error:
+        raise HTTPException(status_code=503, detail=str(error)) from error
 
 
 @app.get("/search")
